@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>聖經經文記憶遊戲</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* --- 新的色彩主題 --- */
+        :root {
+            --bg-main: #EEEFE0; /* 頁面主背景 */
+            --bg-card: #D1D8BE; /* 卡片背景 */
+            --text-accent: #84AE92; /* 強調文字、次要按鈕 */
+            --text-primary: #5A827E; /* 主要文字、主要按鈕 */
+            --text-light: #f8f9fa; /* 亮色文字(用於按鈕) */
+            --border-color: #c1c8a7; /* 邊框顏色 */
+            --correct-green: #5a9a74; /* 正確答案的綠色 */
+            --incorrect-red: #d97d5d; /* 錯誤答案的橘紅色 */
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: var(--bg-main);
+        }
+        #game-container {
+            background-color: var(--bg-card);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        /* 自定義輸入框動畫 */
+        .correct-answer {
+            border-color: var(--correct-green);
+            background-color: #f0fdf4;
+            box-shadow: 0 0 5px var(--correct-green);
+        }
+        .incorrect-answer {
+            border-color: var(--incorrect-red);
+            background-color: #fff6f2;
+            box-shadow: 0 0 5px var(--incorrect-red);
+        }
+        .input-blank {
+            transition: all 0.3s ease-in-out;
+            margin: 2px 4px;
+            padding: 2px 4px;
+            text-align: center;
+            border-radius: 6px;
+            border: 2px solid var(--border-color);
+            background-color: rgba(255, 255, 255, 0.7);
+        }
+        .input-blank::placeholder {
+            color: #a1a1aa; /* zinc-400 */
+            font-weight: 400;
+            letter-spacing: 0.1em;
+        }
+        select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235A827E' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            background-size: 1.5em 1.5em;
+            padding-right: 3rem; 
+        }
+        /* 按鈕禁用時的樣式 */
+        button:disabled {
+            background-color: #a1a1aa; /* zinc-400 */
+            border-color: #a1a1aa;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        /* --- 按鈕顏色覆蓋 --- */
+        #prev-btn, #next-btn { background-color: var(--text-accent); }
+        #prev-btn:hover, #next-btn:hover { background-color: #739d82; }
+
+        #check-btn, #shuffle-btn { background-color: var(--text-primary); }
+        #check-btn:hover, #shuffle-btn:hover { background-color: #4a6d69; }
+        
+        #show-btn { background-color: #b0b8a0; color: #3f3f46; }
+        #show-btn:hover { background-color: #a0aa90; }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+    <div id="game-container" class="p-4 sm:p-6 md:p-8 rounded-2xl shadow-xl w-full max-w-4xl text-center">
+        <h1 class="text-2xl sm:text-3xl font-bold text-[#4a6d69] mb-2">聖經經文記憶遊戲</h1>
+        <p class="text-sm sm:text-base text-gray-600 mb-6">試著填入經文中空白的部分吧！</p>
+
+        <div class="mb-6 w-full max-w-md mx-auto">
+            <label for="verse-select" class="sr-only">選擇經文:</label>
+            <select id="verse-select" class="w-full border rounded-md p-2 bg-white/70 shadow-sm focus:ring-sky-500 focus:border-sky-500" style="border-color: var(--border-color); color: var(--text-primary);">
+            </select>
+        </div>
+
+        <div id="verse-reference" class="text-base sm:text-lg md:text-xl font-semibold mb-4" style="color: var(--text-primary);"></div>
+        
+        <div id="verse-display" class="text-lg sm:text-xl md:text-2xl leading-relaxed sm:leading-loose text-gray-800 p-4 border rounded-lg mb-6 bg-white/50 min-h-[120px] flex flex-wrap justify-center items-center" style="border-color: var(--border-color);">
+            <!-- 經文內容會動態生成於此 -->
+        </div>
+
+        <div id="message-area" class="h-8 mb-6 text-base sm:text-lg font-medium"></div>
+
+        <div class="flex flex-wrap gap-3 justify-center">
+            <button id="prev-btn" class="flex-grow text-white sm:flex-grow-0 font-bold py-2 px-4 sm:py-3 sm:px-6 rounded-lg transition-colors duration-300 shadow-md">上一題</button>
+            <button id="check-btn" class="flex-grow text-white sm:flex-grow-0 font-bold py-2 px-4 sm:py-3 sm:px-6 rounded-lg transition-colors duration-300 shadow-md">檢查答案</button>
+            <button id="shuffle-btn" class="flex-grow text-white sm:flex-grow-0 font-bold py-2 px-4 sm:py-3 sm:px-6 rounded-lg transition-colors duration-300 shadow-md">重新排列</button>
+            <button id="show-btn" class="flex-grow sm:flex-grow-0 font-bold py-2 px-4 sm:py-3 sm:px-6 rounded-lg transition-colors duration-300 shadow-md">顯示答案</button>
+            <button id="next-btn" class="flex-grow text-white sm:flex-grow-0 font-bold py-2 px-4 sm:py-3 sm:px-6 rounded-lg transition-colors duration-300 shadow-md">下一題</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 資料庫：存放所有經文 ---
+        const verses = [
+            // --- Day 1-10 ---
+            { reference: "約翰福音 3:16", text: "神 愛 世人 ， 甚至 將 祂的 獨生子 賜給 他們 ， 叫 一切 信 祂 的 ， 不致 滅亡 ， 反得 永生 。" },
+            { reference: "哥林多後書 5:17", text: "若 有人 在 基督 裏 ， 他 就是 新造的 人 ， 舊事 已過 ， 都 變成 新的 了 。" },
+            { reference: "馬太福音 11:28", text: "凡 勞苦 擔重擔的 人 可以 到 我 這裏 來 ， 我就 使 你們 得 安息 。" },
+            { reference: "馬太福音 6:34", text: "所以 ， 不要 為 明天 憂慮 ， 因為 明天 自有 明天的 憂慮 ； 一天的 難處 一天 當 就夠 了 。" },
+            { reference: "馬太福音 7:7-8", text: "你們 祈求 ， 就 給 你們 ； 尋找 ， 就 尋見 ； 叩門 ， 就 給 你們 開門 。 因為 凡 祈求的 ， 就 得著 ； 尋找的 ， 就 尋見 ； 叩門的 ， 就 給他 開門 。" },
+            { reference: "以弗所書 6:2-3", text: "「 要 孝敬 父母 ， 使 你 得 福 ， 在世 長壽 。 」 這 是 第一條 帶 應許的 誡命 。" },
+            { reference: "箴言 9:10", text: "敬畏 耶和華 是 智慧的 開端 ； 認識 至聖者 便是 聰明 。" },
+            { reference: "雅各書 4:7-8", text: "務要 抵擋 魔鬼 ， 魔鬼 就 必 離開 你們 逃跑了 。 你們 親近 神 ， 神 就 必 親近 你們 。" },
+            { reference: "馬太福音 4:4", text: "經上 記著 說 ： 人 活著 ， 不是 單靠 食物 ， 乃是 靠 神 口 裏 所出的 一切 話 。" },
+            { reference: "詩篇 119:105", text: "祢的 話 是 我 腳前的 燈 ， 是 我 路上的 光 。" },
+            // --- Day 11-20 ---
+            { reference: "腓立比書 4:6-7", text: "應當 一無 掛慮 ， 只要 凡事 藉著 禱告 、 祈求 ， 和 感謝 ， 將 你們 所要的 告訴 神 。 神 所賜 出人意外的 平安 ， 必 在 基督 耶穌 裏 保守 你們的 心懷意念 。" },
+            { reference: "詩篇 23:1-3", text: "耶和華 是 我的 牧者 ， 我 必 不致 缺乏 。 祂 使 我 躺臥 在 青草 地上 ， 領 我 在 可 安歇的 水邊 。 祂 使 我的 靈魂 甦醒 ， 為 自己的 名 引導 我 走 義路 。" },
+            { reference: "馬太福音 16:26", text: "人 若 賺得 全世界 ， 賠上 自己的 生命 ， 有 甚麼 益處 呢 ？ 人 還能 拿 甚麼 換 生命 呢 ？" },
+            { reference: "約翰一書 1:9", text: "我們 若 認 自己的 罪 ， 神 是 信實的 ， 是 公義的 ， 必要 赦免 我們的 罪 ， 洗淨 我們 一切的 不義 。" },
+            { reference: "以賽亞書 53:5", text: "祂 為 我們的 過犯 受害 ， 為 我們的 罪孽 壓傷 。 因 祂 受的 刑罰 ， 我們 得 平安 ； 因 祂 受的 鞭傷 ， 我們 得 醫治 。" },
+            { reference: "帖撒羅尼迦前書 5:16-18", text: "要 常常 喜樂 ， 不住地 禱告 ， 凡事 謝恩 ； 因為 這 是 神 在 基督 耶穌 裏 向 你們 所定的 旨意 。" },
+            { reference: "約翰福音 14:16-17a", text: "我 要求 父 ， 父 就 另外 賜給 你們 一位 保惠師 ， 叫 祂 永遠 與 你們 同在 ， 就是 真理的 聖靈 。" },
+            { reference: "加拉太書 5:22-23a", text: "聖靈 所結的 果子 ， 就是 仁愛 、 喜樂 、 和平 、 忍耐 、 恩慈 、 良善 、 信實 、 溫柔 、 節制 。" },
+            { reference: "哥林多前書 13:4-8a (上)", text: "愛 是 恆久 忍耐 ， 又有 恩慈 ； 愛 是 不 嫉妒 ； 愛 是 不 自誇 ， 不 張狂 ， 不作 害羞的 事 ， 不求 自己的 益處 ， 不輕易 發怒 ， 不 計算 人的 惡 ， 不 喜歡 不義 ， 只 喜歡 真理 。" },
+            { reference: "哥林多前書 13:4-8a (下)", text: "凡事 包容 ， 凡事 相信 ， 凡事 盼望 ， 凡事 忍耐 。 愛 是 永不 止息 。" },
+            { reference: "馬太福音 7:12a", text: "所以 ， 無論 何事 ， 你們 願意 人 怎樣 待 你們 ， 你們 也 要 怎樣 待人 。" },
+            { reference: "哥林多後書 12:9", text: "祂 對 我 說 ： 「 我的 恩典 夠 你 用的 ， 因為 我的 能力 是 在 人的 軟弱上 顯得 完全 。 」 所以 ， 我 更 喜歡 誇 自己的 軟弱 ， 好叫 基督的 能力 覆庇 我 。" },
+            { reference: "哥林多前書 10:13", text: "你們 所遇見的 試探 ， 無非是 人 所能 受的 。 神 是 信實的 ， 必 不叫 你們 受 試探 過於 所能 受的 ； 在 受 試探的 時候 ， 總要 給 你們 開 一條 出路 ， 叫 你們 能 忍受得住 。" },
+            // --- Day 21-30 ---
+            { reference: "約翰福音 8:12", text: "耶穌 又 對 眾人 說 ： 「 我 是 世界的 光 。 跟從 我的 ， 就 不在 黑暗裏 走 ， 必要 得著 生命的 光 。 」" },
+            { reference: "羅馬書 8:28", text: "我們 曉得 萬事 都 互相 效力 ， 叫 愛 神的 人 得 益處 ， 就是 按 他 旨意 被 召的 人 。" },
+            { reference: "以賽亞書 40:31", text: "但 那 等候 耶和華的 必 重新 得力 。 他們 必 如 鷹 展翅 上騰 ； 他們 奔跑 卻 不 困倦 ， 行走 卻 不 疲乏 。" },
+            { reference: "箴言 3:5-6", text: "你 要 專心 仰賴 耶和華 ， 不可 倚靠 自己的 聰明 ， 在 你 一切 所行的 事上 都 要 認定 祂 ， 祂 必 指引 你的 路 。" },
+            { reference: "約翰福音 14:21", text: "有了 我的 命令 又 遵守的 ， 這 人 就是 愛 我的 ； 愛 我的 必 蒙 我 父 愛 他 ， 我 也 要 愛 他 ， 並且 要 向 他 顯現 。" },
+            { reference: "加拉太書 2:20a", text: "我 已經 與 基督 同釘 十字架 ， 現在 活著的 不再是 我 ， 乃是 基督 在 我 裏面 活著 。" },
+            { reference: "約翰福音 14:6", text: "耶穌 說 ： 「 我 就是 道路 、 真理 、 生命 ； 若不 藉著 我 ， 沒有 人 能 到 父 那裏 去 。 」" },
+            { reference: "詩篇 121:7-8", text: "耶和華 要 保護 你 ， 免受 一切的 災害 ； 祂 要 保護 你的 性命 。 你 出 你 入 ， 耶和華 要 保護 你 ， 從 今時 直到 永遠 。" }
+        ];
+
+        // --- DOM 元素獲取 ---
+        const verseReferenceEl = document.getElementById('verse-reference');
+        const verseDisplayEl = document.getElementById('verse-display');
+        const messageAreaEl = document.getElementById('message-area');
+        const checkBtn = document.getElementById('check-btn');
+        const showBtn = document.getElementById('show-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const prevBtn = document.getElementById('prev-btn');
+        const verseSelectEl = document.getElementById('verse-select');
+        const shuffleBtn = document.getElementById('shuffle-btn');
+
+        // --- 遊戲狀態變數 ---
+        let currentVerseIndex = -1;
+        let correctAnswers;
+
+        /**
+         * 填充經文選擇下拉選單
+         */
+        function populateVerseSelector() {
+            verseSelectEl.innerHTML = '';
+            verses.forEach((verse, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = verse.reference;
+                verseSelectEl.appendChild(option);
+            });
+        }
+        
+        /**
+         * 根據索引載入指定的經文題目
+         * @param {number} index - 要載入的經文在 verses 陣列中的索引
+         */
+        function loadVerse(index) {
+            if (index < 0 || index >= verses.length) return; 
+            
+            currentVerseIndex = index;
+            const currentVerse = verses[currentVerseIndex];
+            const words = currentVerse.text.split(' ');
+
+            correctAnswers = new Map();
+            verseDisplayEl.innerHTML = '';
+            messageAreaEl.textContent = '';
+            verseReferenceEl.textContent = currentVerse.reference;
+            verseSelectEl.value = currentVerseIndex;
+
+            const punctuation = ['，', '。', '、', '：', '；', '？', '！', '「', '」'];
+            const wordIndices = words.map((_, i) => i).filter(i => !punctuation.includes(words[i]));
+            const countToHide = Math.ceil(wordIndices.length * 0.4);
+            
+            for (let i = wordIndices.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [wordIndices[i], wordIndices[j]] = [wordIndices[j], wordIndices[i]];
+            }
+            const hiddenIndices = new Set(wordIndices.slice(0, countToHide));
+
+            words.forEach((word, idx) => {
+                const isHidden = hiddenIndices.has(idx);
+
+                if (isHidden) {
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.classList.add('input-blank');
+                    input.setAttribute('data-index', idx);
+                    input.style.width = `${word.length * 1.6 + 1}em`;
+                    input.maxLength = word.length;
+                    input.placeholder = '〇'.repeat(word.length);
+                    verseDisplayEl.appendChild(input);
+                    correctAnswers.set(idx.toString(), word);
+                } else {
+                    const textSpan = document.createElement('span');
+                    textSpan.style.display = 'inline-block';
+                    textSpan.textContent = word;
+                    verseDisplayEl.appendChild(textSpan);
+                }
+                
+                if (idx < words.length - 1) {
+                   verseDisplayEl.appendChild(document.createTextNode(' '));
+                }
+            });
+             
+            updateButtonStates();
+        }
+        
+        function updateButtonStates() {
+            checkBtn.disabled = false;
+            showBtn.disabled = false;
+            shuffleBtn.disabled = false;
+            prevBtn.disabled = currentVerseIndex <= 0;
+            nextBtn.disabled = currentVerseIndex >= verses.length - 1;
+        }
+
+        function checkAnswers() {
+            const inputs = verseDisplayEl.querySelectorAll('input');
+            let allCorrect = true;
+
+            inputs.forEach(input => {
+                const index = input.getAttribute('data-index');
+                const correctAnswer = correctAnswers.get(index);
+                
+                input.classList.remove('correct-answer', 'incorrect-answer');
+                if (input.value.trim() === correctAnswer) {
+                    input.classList.add('correct-answer');
+                } else {
+                    input.classList.add('incorrect-answer');
+                    allCorrect = false;
+                }
+            });
+
+            if (allCorrect) {
+                messageAreaEl.textContent = '恭喜！全部答對了！🎉';
+                messageAreaEl.style.color = 'var(--correct-green)';
+                checkBtn.disabled = true;
+                showBtn.disabled = true;
+            } else {
+                messageAreaEl.textContent = '有些地方錯了喔，再試試看！';
+                messageAreaEl.style.color = 'var(--incorrect-red)';
+            }
+        }
+
+        function showAnswers() {
+            const inputs = verseDisplayEl.querySelectorAll('input');
+            inputs.forEach(input => {
+                const index = input.getAttribute('data-index');
+                input.value = correctAnswers.get(index);
+                input.classList.remove('incorrect-answer');
+                input.classList.add('correct-answer');
+            });
+            messageAreaEl.textContent = '答案已經顯示囉！';
+            messageAreaEl.style.color = 'var(--text-primary)';
+            checkBtn.disabled = true;
+            showBtn.disabled = true;
+        }
+
+        // --- 事件監聽 ---
+        checkBtn.addEventListener('click', checkAnswers);
+        showBtn.addEventListener('click', showAnswers);
+        nextBtn.addEventListener('click', () => loadVerse(currentVerseIndex + 1));
+        prevBtn.addEventListener('click', () => loadVerse(currentVerseIndex - 1));
+        verseSelectEl.addEventListener('change', (e) => loadVerse(parseInt(e.target.value, 10)));
+        shuffleBtn.addEventListener('click', () => loadVerse(currentVerseIndex));
+
+        // --- 初始啟動 ---
+        window.onload = () => {
+            populateVerseSelector();
+            const startingIndex = Math.floor(Math.random() * verses.length);
+            loadVerse(startingIndex);
+        };
+    </script>
+</body>
+</html>
